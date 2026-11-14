@@ -7,7 +7,9 @@ PackReady now targets JavaFX. `PackReadyInputs.java` validates individual fields
 `PackReadyForm.java` reads all seven fields and returns validated values for the
 controller. Both are plain Java with no JavaFX dependency. The classes and their
 standalone test runners temporarily live at the repository root with no package
-declaration, pending the team's source folder and package decision.
+declaration. The team's planner now uses `demo/src/main/java/org/example/demo`
+and the `org.example.demo` package; the validation classes still need to be moved
+there before a controller in that package can call them.
 
 ### Read the implementation
 
@@ -106,15 +108,29 @@ For Load demo, copy `demoFields()` into the seven text fields and invoke the sam
 Calculate handler. The controller should connect Enter to that handler as well.
 Demo values follow the same validation path as manually typed values.
 
-The JavaFX controller/FXML, Java package, and planner API have not been pushed to
-the available branches yet. `Request` and `Item` are app-side data containers;
-they do not prescribe the team's planner signature. No purchase algorithm or
-result renderer is implemented here. The `0`, `30`, and `32` form tests validate
-inputs only; the shared kit counts, shopping lists, and totals need the planner
-before they can be checked end to end. Field focus, stale-result clearing, Enter,
-and actual button actions still need verification in the JavaFX application.
+The planner is now on `main`. Its actual method is
+`Planner.planPurchase(List<Planner.Item> items, long budgetCents)`, returning
+`Planner.Plan`. `Request` and `Item` remain app-side validated data containers.
+Convert each item with
+`new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents())`
+and pass `request.getBudgetCents()` as the budget. The validated `int` cents widen
+exactly to the planner's `long` cents; no decimal parsing or rounding is needed
+in this adapter. The `results` branch supplies `PackReadyResults`, which accepts
+the actual `Planner.Plan`.
 
-When the layout is confirmed, move both production classes into the agreed
-source folder and add its `package` declaration. The test runners must use the
-same package (or import those classes). A controller in a named package cannot
-import a class from the default package.
+The commands above test input validation. A separate combined review also passed
+raw form input through the actual planner and results for $0, $30, $31.99, $32,
+zero stock, and exact decimal prices. It found an extreme-stock overflow in the
+planner; the planner owner needs to guard the next kit target against `int`
+overflow. The reproduction and tested guard are documented in the
+[results review notes](https://github.com/wazz64/HackDecouvert2026WWYJ/blob/results/README.md#planner-boundary-follow-up).
+
+The JavaFX screen/controller and runnable build files are still pending. Field
+focus, stale-result clearing, Enter, and actual button actions still need
+verification in the JavaFX application.
+
+Before wiring the controller, move both production classes into
+`demo/src/main/java/org/example/demo` and add `package org.example.demo;`.
+The test runners should move into `demo/src/test/java/org/example/demo` and use
+the same package. Update their compile/run commands when migrating them. A
+controller in a named package cannot import a class from the default package.
