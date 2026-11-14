@@ -1,22 +1,19 @@
 package org.example.demo;
 
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
-import java.io.IOException;
 
 public class HelloApplication extends Application {
     @Override
-    public void start(Stage stage) throws IOException {
-        var root= new VBox();
-        Scene scene = new Scene(root, 320, 240);
-        stage.setTitle("Hello!");
+    public void start(Stage stage) {
+        PackReadyView view = new PackReadyView();
+        new PackReadyController(view);
+        Scene scene = new Scene(view, 1120, 820);
+        stage.setTitle("PackReady | School kit planner");
+        stage.setMinWidth(420);
+        stage.setMinHeight(600);
         stage.setScene(scene);
         stage.show();
-        System.out.println("allo");
-        System.out.println("allo");
     }
 }

@@ -1,0 +1,129 @@
+.root {
+    -fx-font-family: "System";
+    -fx-font-size: 13px;
+    -fx-text-fill: #223e32;
+    -fx-background-color: #f5f7f3;
+}
+.app-scroll, .app-scroll > .viewport, .canvas { -fx-background-color: #f5f7f3; }
+.app-scroll { -fx-padding: 0; -fx-background-insets: 0; }
+.page { -fx-padding: 30 36 24 36; }
+.label { -fx-text-fill: #223e32; }
+.brand-mark {
+    -fx-background-color: #245e49;
+    -fx-background-radius: 13;
+    -fx-min-width: 43;
+    -fx-min-height: 43;
+    -fx-alignment: center;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 30px;
+    -fx-text-fill: white;
+}
+.brand-name { -fx-font-size: 18px; -fx-font-weight: bold; }
+.brand-tagline { -fx-font-size: 11px; -fx-text-fill: #64766a; }
+.eyebrow { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: #53705e; }
+.intro { -fx-padding: 7 0 2 0; }
+.hero-title { -fx-font-family: "Georgia"; -fx-font-size: 34px; -fx-text-fill: #233d31; }
+.intro-copy { -fx-font-size: 13px; -fx-text-fill: #637468; -fx-padding: 3 0 0 0; }
+.panel {
+    -fx-background-color: white;
+    -fx-background-radius: 16;
+    -fx-border-color: #dfe7de;
+    -fx-border-radius: 16;
+    -fx-padding: 26;
+    -fx-effect: dropshadow(gaussian, rgba(28, 55, 38, 0.035), 14, 0, 0, 4);
+}
+.panel-title { -fx-font-size: 17px; -fx-font-weight: bold; }
+.step-number {
+    -fx-font-size: 11px;
+    -fx-text-fill: #66806d;
+    -fx-background-color: #f0f4ed;
+    -fx-background-radius: 6;
+    -fx-padding: 5 7;
+}
+.muted { -fx-font-size: 12px; -fx-text-fill: #66786c; }
+.supply-row { -fx-padding: 17 0; -fx-border-color: transparent transparent #edf0ea transparent; }
+.supply-name { -fx-font-size: 13px; -fx-font-weight: bold; }
+.supply-help { -fx-font-size: 10px; -fx-text-fill: #5e725f; }
+.supply-icon { -fx-background-color: #eef4ee; -fx-background-radius: 10; }
+.supply-icon-path {
+    -fx-fill: transparent;
+    -fx-stroke: #5b8068;
+    -fx-stroke-width: 1.4;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+.field-label { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: #627467; }
+.text-field {
+    -fx-font-size: 14px;
+    -fx-text-fill: #223e32;
+    -fx-prompt-text-fill: #829187;
+    -fx-background-color: #fbfcf9;
+    -fx-background-radius: 7;
+    -fx-background-insets: 0;
+    -fx-border-color: #d5dfd3;
+    -fx-border-radius: 7;
+    -fx-border-width: 1;
+    -fx-padding: 10 11;
+}
+.text-field:focused {
+    -fx-background-color: white;
+    -fx-border-color: #2d7358;
+    -fx-effect: dropshadow(gaussian, rgba(45, 115, 88, 0.2), 6, 0, 0, 0);
+}
+.text-field:invalid { -fx-border-color: #b34d3c; -fx-background-color: #fff8f5; }
+.text-field:invalid:focused { -fx-effect: dropshadow(gaussian, rgba(179, 77, 60, 0.2), 6, 0, 0, 0); }
+.money-field { -fx-padding: 10 11 10 29; }
+.money-symbol { -fx-font-size: 13px; -fx-text-fill: #6b7c70; }
+.budget-box { -fx-padding: 16; -fx-background-color: #f1f5ed; -fx-background-radius: 10; }
+.budget-title { -fx-font-size: 13px; -fx-font-weight: bold; }
+.form-error {
+    -fx-text-fill: #9c3c2c;
+    -fx-background-color: #fff1ed;
+    -fx-background-radius: 8;
+    -fx-font-size: 12px;
+    -fx-padding: 12;
+}
+.button { -fx-cursor: hand; -fx-font-size: 12px; -fx-font-weight: bold; }
+.primary-button, .secondary-button {
+    -fx-padding: 12 17;
+    -fx-background-radius: 8;
+    -fx-background-insets: 0;
+    -fx-border-radius: 8;
+    -fx-border-width: 2;
+}
+.primary-button { -fx-background-color: #245e49; -fx-text-fill: white; -fx-border-color: transparent; }
+.primary-button:hover { -fx-background-color: #194d39; }
+.primary-button:pressed { -fx-background-color: #103d2c; }
+.primary-button:focused { -fx-border-color: #a0cbb2; }
+.secondary-button { -fx-background-color: white; -fx-border-color: #d5dfd3; -fx-text-fill: #365b45; }
+.secondary-button:hover { -fx-background-color: #eef4eb; }
+.secondary-button:focused { -fx-border-color: #2d7358; }
+.form-note { -fx-font-size: 10px; -fx-text-fill: #5e725f; -fx-alignment: center; }
+.result-stat { -fx-background-color: #f3f5f0; -fx-background-radius: 10; -fx-padding: 17; }
+.planned-stat { -fx-background-color: #e5f2e8; }
+.stat-caption { -fx-font-size: 9px; -fx-font-weight: bold; -fx-text-fill: #6b7e6b; }
+.stat-count { -fx-font-family: "Georgia"; -fx-font-size: 43px; -fx-text-fill: #324c37; }
+.planned-stat .stat-count { -fx-text-fill: #245e49; }
+.stat-unit { -fx-font-size: 11px; -fx-text-fill: #5e725f; }
+.section-title { -fx-font-size: 13px; -fx-font-weight: bold; }
+.purchase-row { -fx-padding: 13 0; -fx-border-color: transparent transparent #edf0ea transparent; }
+.purchase-name { -fx-font-size: 12px; }
+.purchase-quantity { -fx-font-size: 11px; -fx-text-fill: #5c775f; -fx-background-color: #f1f5ed; -fx-background-radius: 5; -fx-padding: 4 7; }
+.purchase-cost { -fx-font-size: 12px; -fx-font-weight: bold; }
+.totals { -fx-padding: 18 0 0 0; -fx-border-color: #e4ebe1 transparent transparent transparent; }
+.money-value { -fx-font-size: 17px; -fx-font-weight: bold; }
+.remaining-money .money-value { -fx-text-fill: #2d7358; }
+.result-note { -fx-font-size: 11px; -fx-text-fill: #5e725f; }
+.result-empty { -fx-padding: 32 8; }
+.result-empty .supply-icon { -fx-min-width: 60; -fx-min-height: 60; -fx-pref-width: 60; -fx-pref-height: 60; -fx-max-width: 60; -fx-max-height: 60; -fx-background-radius: 18; }
+.empty-title { -fx-font-family: "Georgia"; -fx-font-size: 23px; -fx-text-fill: #49604d; }
+.kit-recipe { -fx-font-size: 10px; -fx-text-fill: #5e725f; -fx-background-color: #f4f7f0; -fx-background-radius: 8; -fx-padding: 12; -fx-alignment: center; }
+.empty-shopping { -fx-font-size: 12px; -fx-text-fill: #61725f; -fx-wrap-text: true; -fx-padding: 8 0 12 0; }
+.footer-copy { -fx-font-size: 11px; -fx-text-fill: #5e725f; }
+.scroll-bar:vertical { -fx-background-color: transparent; -fx-pref-width: 10; }
+.scroll-bar:vertical .thumb { -fx-background-color: #cbd7c8; -fx-background-radius: 8; }
+.scroll-bar:vertical .track, .scroll-bar .increment-button, .scroll-bar .decrement-button { -fx-background-color: transparent; }
+.app-scroll:narrow .page { -fx-padding: 22 18; }
+.app-scroll:narrow .panel { -fx-padding: 20; }
+.app-scroll:narrow .hero-title { -fx-font-size: 28px; }
+.app-scroll:narrow .supply-row { -fx-padding: 18 0; }

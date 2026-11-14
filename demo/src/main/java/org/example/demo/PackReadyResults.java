@@ -48,12 +48,12 @@ public final class PackReadyResults {
             for (Planner.Purchase purchase : plan.purchases()) {
                 text.append("- ").append(purchase.quantity()).append(" ")
                         .append(purchase.name()).append(": ")
-                        .append(cad(purchase.subtotalCents())).append('\n');
+                        .append(formatCad(purchase.subtotalCents())).append('\n');
             }
         }
 
-        text.append("\nTotal spent: ").append(cad(plan.totalCents()));
-        text.append("\nBudget left: ").append(cad(plan.remainingCents()));
+        text.append("\nTotal spent: ").append(formatCad(plan.totalCents()));
+        text.append("\nBudget left: ").append(formatCad(plan.remainingCents()));
         return text.toString();
     }
 
@@ -61,7 +61,8 @@ public final class PackReadyResults {
         return count + (count == 1 ? " kit" : " kits");
     }
 
-    private static String cad(long cents) {
+    /** Formats integer cents as an exact CAD amount for text and JavaFX results. */
+    public static String formatCad(long cents) {
         // Exact decimal formatting, including values too large for an exact double.
         return "CAD $" + BigDecimal.valueOf(cents, 2).toPlainString();
     }

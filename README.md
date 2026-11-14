@@ -1,8 +1,35 @@
 # HackDecouvertePlsWork
 
 PackReady helps donation-drive volunteers decide what to buy to complete the
-most school kits within a budget. This transfer brings the completed input
-validation and results code into this repository's existing Java project.
+most school kits within a budget. The JavaFX application now includes the seven
+input fields, Calculate, Load demo, validation feedback, and a shopping-plan
+panel. The layout uses two columns on a laptop and stacks on smaller windows.
+
+![PackReady JavaFX application showing the $30 demo](docs/packready-preview.png)
+
+## Open the app from VS Code
+
+From this repository's root, with JDK 17 or newer on your terminal's path:
+
+```sh
+sh scripts/run-packready.sh
+```
+
+The launcher compiles the JavaFX application and opens its window. It uses the
+same JavaFX 21.0.6 libraries as the Gradle project, reusing a local Maven cache
+or downloading the platform-specific jars from Maven Central on first use.
+Dependencies and compiled classes are cached under `/tmp`, outside the repo.
+The script supports macOS on Intel/Apple silicon, Linux on Intel/ARM64, and
+Windows x64 with Git Bash. It has been exercised on this Mac with JDK 25.
+
+In IntelliJ, open `demo/build.gradle.kts` and run the application's `run` task.
+The existing Gradle toolchain setting requests JDK 23. The terminal launcher
+above works independently of that Gradle setup.
+
+Click **Load demo** to immediately show the $30 plan: 8 kits now, 20 kits after
+shopping, $29 spent, and $1 left. Change the budget to **32** and press Enter or
+Calculate to see 21 kits. A zero budget keeps the counts and totals visible with
+an empty-shopping message.
 
 ## Source layout
 
@@ -15,6 +42,12 @@ All production classes use `package org.example.demo;` in
 | `PackReadyForm` | Validates all seven fields, identifies the first invalid field, and supplies demo values. |
 | `Planner` | The team's purchase planner and its `Item`, `Purchase`, and `Plan` records. |
 | `PackReadyResults` | Formats the supplied plan in CAD and replaces the previous text result. |
+| `PackReadyView` | Responsive supply form, labels, focus styles, and validation feedback. |
+| `PackReadyController` | Calculate/Enter/demo actions, validation, and the planner call. |
+| `PackReadyResultsPane` | Kit-count cards, purchase rows, and CAD totals. |
+
+The stylesheet is `demo/src/main/resources/org/example/demo/packready.css`.
+`HelloApplication` opens this view through the existing JavaFX launcher.
 
 Standalone checks live in `demo/src/test/java/org/example/demo`. The validation
 classes have been moved out of the default package so the JavaFX controller can
@@ -42,10 +75,22 @@ $31.99, $32, zero stock, and exact decimal prices.
 These checks have standalone `main` methods. Run the script to execute them;
 the existing Gradle `test` task uses JUnit discovery instead.
 
-## Controller handoff
+## Run the JavaFX checks
 
-After collecting the seven text fields into a `Map<String, String>`, the
-controller can use the validated values like this:
+```sh
+sh scripts/test-packready-ui.sh
+```
+
+This opens a test window briefly, runs 53 checks, saves screenshots under
+`/tmp/packready-ui-shots`, and closes the window. It checks the $30/$32/$0 plans,
+the Enter action, demo loading, zero stock, invalid/blank input, field focus,
+accessible field errors, stale-result clearing, and layouts down to 420px wide.
+Desktop, stacked, error, and minimum-width screenshots have been inspected.
+
+## How the controller connects the Java code
+
+`PackReadyController` collects the seven raw text fields, validates them with
+`PackReadyForm`, adapts the items, and calls the planner. Its Java data flow is:
 
 ```java
 PackReadyForm.Request request = PackReadyForm.parse(rawText);
@@ -54,24 +99,19 @@ for (PackReadyForm.Item item : request.getItems()) {
     items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents()));
 }
 Planner.Plan plan = Planner.planPurchase(items, request.getBudgetCents());
-PackReadyResults.renderResults(resultsArea::setText, plan);
+view.results().showPlan(plan);
 ```
 
-`rawText` and `resultsArea` are placeholders for the team's actual fields.
-The controller will need `java.util.List` and `java.util.ArrayList` imports.
 The validated `int` cents widen exactly to the planner's `long` cents.
+The JavaFX results panel uses the shared `PackReadyResults.formatCad` formatter;
+`PackReadyResults.format` also supplies its accessible summary.
 
-Catch `PackReadyForm.FieldValidationException` to display `getMessage()`, clear
-stale results, and focus the field named by `getFieldName()`. Load demo should
-populate all seven fields from `PackReadyForm.demoFields()` and run the same
-Calculate handler. Enter should use that handler as well. Use a plain-text
-JavaFX control such as a noneditable, wrapping `TextArea` for the result and call
-its setter on the JavaFX application thread.
-
-The existing JavaFX entry point is still the team's starter screen; the actual
-PackReady fields and event handlers need to be connected. The existing Gradle
-configuration requests JDK 23 and JavaFX 21.0.6. The core-check script above
-does not build or launch that JavaFX application.
+The controller catches `PackReadyForm.FieldValidationException`, displays the
+specific error, clears stale results, and focuses the field identified by
+`getFieldName()`. The error is also associated with that field's accessible help.
+On smaller windows it scrolls the invalid field into view. Load demo fills all
+seven fields from `PackReadyForm.demoFields()` and calls the same calculation
+path as Calculate and the text fields' Enter actions.
 
 ## Review notes and original history
 
@@ -82,11 +122,14 @@ does not build or launch that JavaFX application.
 - The original branches and full commit history are preserved as
   `archive/packready-app` and `archive/packready-results`.
 
-The source history is from `wazz64/HackDecouvert2026WWYJ`; this combined transfer
-is on `packready-transfer`, based on this repository's own `main`.
+The source history is from `wazz64/HackDecouvert2026WWYJ`. The combined transfer
+is preserved on `packready-transfer`; the JavaFX UI is on `layout`.
 
 There is one confirmed planner follow-up: at maximum `int` stock counts, its
 next target can overflow into a negative kit count. The reproduction and tested
 guard are in the [planner boundary notes](docs/packready-results-notes.md#planner-boundary-follow-up).
 The planner was copied with that finding documented for its owner; the guard
-has not been applied to its production code.
+has not been applied to its production code. The controller detects an invalid
+negative-count response and shows an actionable range error rather than
+displaying negative kits. This presentation check does not replace the pending
+planner fix.
