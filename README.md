@@ -79,3 +79,35 @@ controller, or build wrapper. The tests verify the text and replacement calls;
 the live control's layout, wrapping, and accessibility still need verification
 when the team pushes its UI. The result area should have a visible label and an
 accessible name, and remain readable and scrollable for longer shopping lists.
+
+### Review handoff
+
+The review covered the `app` validation code and this branch's results code:
+74 parser checks, 66 form checks, and 18 results checks all passed with compiler
+warnings treated as errors. Six additional checks passed raw form text through
+validation, adaptation to `Planner.Item`, the actual planner, and the result
+setter. They covered $0, $30, $31.99, $32, zero stock, and exact decimal prices.
+These are Java checks; live JavaFX event handling and layout remain unverified.
+
+### Planner boundary follow-up
+
+One additional extreme-input check found a defect in the planner. Set all three
+stock counts to `2147483647`, keep the demo unit prices of $12, $1, and $2, and
+use a $15 budget. The form accepts these inputs, but `Planner.planPurchase`
+returns `plannedKits = -2147483648` because `plannedKits + 1` overflows an `int`.
+
+Request for the planner owner: guard the next target before adding one. The
+minimal guard for the current `int` kit-count model is:
+
+```java
+while (plannedKits < Integer.MAX_VALUE
+        && costToReach(items, plannedKits + 1) <= budgetCents) {
+    plannedKits++;
+}
+```
+
+This caps the count at the largest value the current model can represent. If
+larger kit counts must be supported, the planner owner should widen the kit-count
+types instead. The guard passed the boundary check, existing planner/results
+tests, and six combined-flow checks in a temporary copy. The team's committed
+`Planner.java` is unchanged; this follow-up still needs the planner owner's fix.
