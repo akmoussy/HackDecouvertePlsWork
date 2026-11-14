@@ -60,6 +60,7 @@ public final class PackReadyUiTest {
                 check("all ten fields including per-kit quantities are present", view.fields().size() == 10);
                 check("Calculate is the default button", view.calculateButton().isDefaultButton());
                 check("empty form starts with guidance", view.lookup("#current-kits") == null);
+                check("CSV export is disabled before calculation", view.lookup("#export-csv").isDisabled());
                 for (TextField field : view.fields().values()) {
                     boolean labeled = view.lookupAll(".label").stream()
                             .filter(node -> node instanceof Label)
@@ -72,6 +73,7 @@ public final class PackReadyUiTest {
             });
             steps.add(() -> {
                 expectPlan("$30 fixed reference", "8", "20", "CAD $29.00", "CAD $1.00");
+                verifyCsvExport();
                 check("shopping quantities are visible", view.results().getAccessibleText().contains("5 Notebooks")
                         && view.results().getAccessibleText().contains("12 Pencil cases"));
                 screenshot("desktop-plan");
@@ -415,6 +417,25 @@ public final class PackReadyUiTest {
             check(label + " associates the error with its field for accessibility",
                     input(field).getAccessibleHelp().contains(message));
             check(label + " clears old results", view.lookup("#current-kits") == null);
+            check(label + " disables stale CSV export", view.lookup("#export-csv").isDisabled());
+        }
+
+        private void verifyCsvExport() {
+            try {
+                Button button = (Button) view.lookup("#export-csv");
+                check("CSV export is enabled and wired for valid results", !button.isDisabled() && button.getOnAction() != null);
+                Path file = Files.createTempFile("packready-csv-ui-", ".csv");
+                check("CSV save succeeds through the results panel", view.results().exportDisplayedPlan(file));
+                String csv = Files.readString(file);
+                check("saved CSV contains the displayed purchases and total", csv.contains("\"Notebooks\",\"5\",\"5.00\"")
+                        && csv.contains("\"Total spent\",\"\",\"29.00\""));
+                check("CSV save reports success", ((Label) view.lookup("#export-status")).getText().startsWith("Saved "));
+                check("an unwritable destination gets a friendly error", !view.results().exportDisplayedPlan(file.getParent())
+                        && ((Label) view.lookup("#export-status")).getText().contains("Could not save"));
+                check("export failure preserves the calculated plan", view.lookup("#planned-kits") != null && !button.isDisabled());
+            } catch (IOException exception) {
+                throw new IllegalStateException(exception);
+            }
         }
 
         private void check(String label, boolean passed) {

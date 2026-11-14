@@ -77,9 +77,24 @@ For example, add Water bottles at 2 per kit, zero stock, and a $0.50 unit price
 to the fixed $30 reference recipe above. It produces 15 kits, spends $29,
 and leaves $1. Undo restores required quantities as well as stock and prices.
 
+## Export results to CSV
+
+Calculate a plan or load a demo, then click **Export CSV** at the bottom of the
+results panel. Choose where to save `packready-results.csv` and click Save.
+The CSV includes kit counts, purchase quantities and subtotals, total spent,
+and budget left. Amounts are numeric CAD values with two decimal places. The
+UTF-8 file supports accented names and quotes names containing commas.
+
+Export is disabled until a valid result exists, and is disabled again when
+validation or category changes clear the result. It saves the displayed plan.
+Cancelling the save dialog leaves the plan unchanged; a save error appears in
+the results panel so you can try another location.
+
 ## Return to the previous UI
 
-This update is isolated on `required-quantities`. The previous category editor
+This update is isolated on `csv-export`. The previous quantity/random-demo UI
+is preserved on `required-quantities` and tag `ui-before-csv` at `77d72d1`.
+The earlier category editor
 is preserved on `categories` and tag `ui-before-quantities` at `5d2b13b`.
 The earlier original UI remains on `layout` and tag `ui-before-categories` at
 `1e372a3`. No reset or deletion of new work is needed to go back.
@@ -87,11 +102,11 @@ The earlier original UI remains on `layout` and tag `ui-before-categories` at
 Close the running window, then switch and reopen:
 
 ```sh
-git switch categories
+git switch required-quantities
 sh scripts/run-packready.sh
 ```
 
-Use `git switch required-quantities` to return to this update. The saved tags let
+Use `git switch csv-export` to return to this update. The saved tags let
 us recover the exact previous versions even if their branches change later.
 
 ## Source layout
@@ -108,6 +123,7 @@ All production classes use `package org.example.demo;` in
 | `PackReadyView` | Responsive supply form, labels, focus styles, and validation feedback. |
 | `PackReadyController` | Calculate/Enter/demo actions, validation, and the planner call. |
 | `PackReadyDemo` | Generates fresh valid demo values, independently of fixed test fixtures. |
+| `PackReadyCsv` | Exports displayed results as a UTF-8 CSV file with numeric CAD amounts. |
 | `PackReadyResultsPane` | Kit-count cards, purchase rows, and CAD totals. |
 
 The stylesheet is `demo/src/main/resources/org/example/demo/packready.css`.
@@ -130,7 +146,7 @@ planner, results, and combined-flow checks. The checks use core Java and need
 no JavaFX toolkit or external test library. The script reports the temporary
 directory containing the compiled classes; it writes no classes into the repo.
 
-The parser, form, results, flow, category, quantity, and demo suites have 220
+The parser, form, results, flow, category, quantity, demo, and CSV suites have 226
 checks in total. The planner suite also includes its existing comparison with
 2,000 generated cases. New checks compare 1,000 weighted recipes with exhaustive
 search and validate 500 randomized demo datasets. The
@@ -147,7 +163,7 @@ the existing Gradle `test` task uses JUnit discovery instead.
 sh scripts/test-packready-ui.sh
 ```
 
-This opens a test window briefly, runs 133 checks, saves screenshots under
+This opens a test window briefly, runs 147 checks, saves screenshots under
 `/tmp/packready-ui-shots`, and closes the window. It checks the $30/$32/$0 plans,
 the Enter action, demo loading, zero stock, invalid/blank input, field focus,
 accessible field errors, stale-result clearing, and layouts down to 420px wide.
@@ -156,6 +172,8 @@ original values, empty/single-category kits, and demo reset after editing.
 It verifies quantity validation and focus, weighted purchase costs, quantity
 preservation through Undo, repeated random demo clicks, and per-kit controls at
 the 420px minimum width.
+It checks CSV enable/disable state, actual file output, success feedback, and
+save-error feedback through the same save method used by the file chooser.
 Desktop, stacked, error, and minimum-width screenshots have been inspected.
 
 ## How the controller connects the Java code

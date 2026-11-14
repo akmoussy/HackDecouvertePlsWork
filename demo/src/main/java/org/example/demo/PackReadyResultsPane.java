@@ -1,22 +1,40 @@
 package org.example.demo;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 /** Structured JavaFX presentation of the planner's supplied values. */
 final class PackReadyResultsPane extends VBox {
+    private final Button export = new Button("Export CSV");
+    private final Label exportStatus = PackReadyView.label("", "muted");
+    private Planner.Plan displayedPlan;
+
     PackReadyResultsPane() {
         super(22);
         setId("results");
         getStyleClass().addAll("panel", "results-panel");
         setMinWidth(0);
+        export.setId("export-csv");
+        export.getStyleClass().add("secondary-button");
+        export.setMaxWidth(Double.MAX_VALUE);
+        export.setOnAction(event -> chooseCsvFile());
+        exportStatus.setId("export-status");
+        exportStatus.setWrapText(true);
         showEmpty();
     }
 
     void showEmpty() {
+        displayedPlan = null;
+        export.setDisable(true);
+        clearExportStatus();
         Label heading = PackReadyView.label("Your shopping plan", "panel-title");
         Label step = PackReadyView.label("02", "step-number");
         HBox header = new HBox(10, step, heading);
@@ -36,11 +54,14 @@ final class PackReadyResultsPane extends VBox {
         Label kit = PackReadyView.label("Every kit includes the required quantity from each category.", "kit-recipe");
         kit.setWrapText(true);
         kit.setMaxWidth(Double.MAX_VALUE);
-        getChildren().setAll(header, empty, kit);
+        getChildren().setAll(header, empty, kit, export, exportStatus);
         setAccessibleText("Your shopping plan. Enter supplies and a budget to calculate.");
     }
 
     void showPlan(Planner.Plan plan) {
+        displayedPlan = plan;
+        export.setDisable(false);
+        clearExportStatus();
         Label heading = PackReadyView.label("Your shopping plan", "panel-title");
         HBox header = new HBox(10, PackReadyView.label("02", "step-number"), heading);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -85,8 +106,43 @@ final class PackReadyResultsPane extends VBox {
         HBox.setHgrow(left, Priority.ALWAYS);
         Label note = PackReadyView.label("A complete kit. A ready-to-learn student.", "result-note");
         note.setWrapText(true);
-        getChildren().setAll(header, summary, shoppingTitle, shopping, totals, note);
+        getChildren().setAll(header, summary, shoppingTitle, shopping, totals, note, export, exportStatus);
         setAccessibleText(PackReadyResults.format(plan));
+    }
+
+    private void chooseCsvFile() {
+        if (displayedPlan == null) { return; }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Export shopping plan");
+        chooser.setInitialFileName("packready-results.csv");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV files (*.csv)", "*.csv"));
+        File file = chooser.showSaveDialog(getScene().getWindow());
+        if (file != null) { exportDisplayedPlan(file.toPath()); }
+    }
+
+    /** Also lets the acceptance checks exercise saving without a native dialog. */
+    boolean exportDisplayedPlan(Path file) {
+        if (displayedPlan == null) { return false; }
+        try {
+            PackReadyCsv.write(file, displayedPlan);
+            exportStatus.getStyleClass().setAll("label", "muted");
+            exportStatus.setText("Saved " + file.getFileName() + ".");
+        } catch (IOException | SecurityException exception) {
+            exportStatus.getStyleClass().setAll("label", "form-error");
+            exportStatus.setText("Could not save the CSV. Choose a writable location and try again.");
+            exportStatus.setVisible(true);
+            exportStatus.setManaged(true);
+            return false;
+        }
+        exportStatus.setVisible(true);
+        exportStatus.setManaged(true);
+        return true;
+    }
+
+    private void clearExportStatus() {
+        exportStatus.setText("");
+        exportStatus.setVisible(false);
+        exportStatus.setManaged(false);
     }
 
     private static VBox stat(String caption, String value, String id, boolean accent) {
