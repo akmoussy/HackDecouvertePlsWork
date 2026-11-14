@@ -1,3 +1,4 @@
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -8,7 +9,16 @@ public final class PackReadyFormTest {
 
     public static void main(String[] args) {
         Map<String, String> fields = PackReadyForm.demoFields();
-        Map<String, String> original = new LinkedHashMap<>(fields);
+        // Specify the external field contract independently of the production constants.
+        Map<String, String> original = new LinkedHashMap<>();
+        original.put("backpack-stock", "25");
+        original.put("backpack-price", "12");
+        original.put("notebook-stock", "15");
+        original.put("notebook-price", "1");
+        original.put("pencil-case-stock", "8");
+        original.put("pencil-case-price", "2");
+        original.put("budget", "30");
+        expectEquals("demo uses the agreed field names and values", original, fields);
         PackReadyForm.Request request = PackReadyForm.parse(fields);
 
         expectEquals("seven demo fields", 7, fields.size());
@@ -81,6 +91,37 @@ public final class PackReadyFormTest {
         fields = PackReadyForm.demoFields();
         fields.put(PackReadyForm.PENCIL_CASE_PRICE, "abc");
         expectInvalidField("specific pencil case error", fields, PackReadyForm.PENCIL_CASE_PRICE, "Pencil cases");
+
+        // Every field can be first invalid after the preceding fields are corrected.
+        String[] displayOrder = {
+                "backpack-stock", "backpack-price", "notebook-stock", "notebook-price",
+                "pencil-case-stock", "pencil-case-price", "budget"
+        };
+        fields = new LinkedHashMap<>();
+        for (int index = displayOrder.length - 1; index >= 0; index--) {
+            fields.put(displayOrder[index], "");
+        }
+        for (String field : displayOrder) {
+            expectInvalidField("next invalid field is " + field, fields, field, "required");
+            fields.put(field, original.get(field));
+        }
+        expectEquals("form succeeds after correcting all fields", 3000,
+                PackReadyForm.parse(fields).getBudgetCents());
+
+        for (String field : displayOrder) {
+            fields = new LinkedHashMap<>(original);
+            fields.put(field, field.endsWith("-stock") ? "2147483648" : "21474836.48");
+            expectInvalidField("overflow in " + field, fields, field, "at most");
+        }
+
+        try {
+            PackReadyForm.parse(null);
+            throw new AssertionError("A null form should be rejected");
+        } catch (IllegalArgumentException expected) {
+            expectEquals("null form has a useful error", "Form fields are required.", expected.getMessage());
+        }
+        expectEquals("read-only form can be parsed", 3000,
+                PackReadyForm.parse(Collections.unmodifiableMap(original)).getBudgetCents());
 
         // Reloading demo data restores all seven fields without sharing mutable state.
         fields.clear();

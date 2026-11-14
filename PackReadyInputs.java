@@ -47,8 +47,9 @@ public final class PackReadyInputs {
 
         // Check precision first, so even 12.000 is rejected rather than rounded.
         if (!text.matches("[0-9]+(\\.[0-9]{1,2})?")) {
+            String amountRule = allowZero ? "a nonnegative" : "a positive";
             throw new IllegalArgumentException(
-                    field + " must be a nonnegative dollar amount with at most two decimal places."
+                    field + " must be " + amountRule + " dollar amount with at most two decimal places."
                             + " Examples: 12, 12.5, 12.50.");
         }
 

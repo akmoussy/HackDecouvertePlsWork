@@ -21,11 +21,11 @@ declaration, pending the team's source folder and package decision.
    the budget (zero allowed) and `false` for a unit price (must be positive).
 
 Both methods throw `IllegalArgumentException` with a readable message when the
-input is invalid. Surrounding spaces are allowed; currency symbols, commas,
-signs, and scientific notation are rejected. Money requires digits before the
-decimal point and one or two digits after it when present, so `.50` and `12.` are
-rejected. Stock is limited to `2147483647`, and dollar amounts to `21474836.47`,
-because the methods return integer counts and integer cents.
+input is invalid. Surrounding spaces and leading zeros are allowed; currency
+symbols, commas, signs, and scientific notation are rejected. Money requires
+digits before the decimal point and one or two digits after it when present, so
+`.50` and `12.` are rejected. Stock is limited to `2147483647`, and dollar amounts
+to `21474836.47`, because the methods return integer counts and integer cents.
 
 ### Run the tests in the VS Code terminal
 
@@ -38,7 +38,7 @@ java -cp /tmp/packready-input-tests PackReadyInputsTest
 ```
 
 The runner prints each accepted value or expected rejection and ends with
-`All 48 checks passed.` A failed check throws `AssertionError` and exits with a
+`All 74 checks passed.` A failed check throws `AssertionError` and exits with a
 failure status. Compiled classes stay outside the repository.
 
 ### Validate the complete form
@@ -83,7 +83,10 @@ java -cp /tmp/packready-input-tests PackReadyFormTest
 
 These checks cover the demo values, budgets of `0`, `30`, and `32`, all blank or
 missing fields, zero unit prices, excess decimal places, the first invalid field,
-and preservation of input and validated values.
+and preservation of input and validated values. They also independently check
+the seven agreed field names, validation order even when map order is reversed,
+overflow errors for every field, and parsing of a read-only map. The expected
+final line is `All 66 form checks passed.`
 
 ### Connect the JavaFX controller when it is available
 
