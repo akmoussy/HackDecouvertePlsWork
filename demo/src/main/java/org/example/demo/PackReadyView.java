@@ -1,7 +1,9 @@
 package org.example.demo;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javafx.application.Platform;
@@ -14,6 +16,8 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -23,7 +27,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.SVGPath;
 
-/** Programmatic JavaFX layout, with the shared seven-field contract. */
+/** JavaFX layout with editable kit categories and the original three-category demo. */
 public final class PackReadyView extends ScrollPane {
     private static final PseudoClass INVALID = PseudoClass.getPseudoClass("invalid");
     private static final PseudoClass NARROW = PseudoClass.getPseudoClass("narrow");
@@ -34,6 +38,20 @@ public final class PackReadyView extends ScrollPane {
     private final PackReadyResultsPane results = new PackReadyResultsPane();
     private final VBox page = new VBox(28);
     private final GridPane columns = new GridPane();
+    private final VBox rows = new VBox(0);
+    private final List<SupplyRow> categories = new ArrayList<>();
+    private final Button addCategory = new Button("+ Add category");
+    private final TextField categoryName = new TextField();
+    private final Button confirmCategory = new Button("Add");
+    private final Button cancelCategory = new Button("Cancel");
+    private final Label categoryError = label("", "form-error");
+    private final VBox categoryEditor = new VBox(9);
+    private final Label removedMessage = label("", "muted");
+    private final Button undoRemoval = new Button("Undo");
+    private final HBox undoNotice = new HBox(10);
+    private SupplyRow lastRemoved;
+    private int lastRemovedIndex;
+    private int nextCategoryId = 1;
     private boolean stacked;
 
     public PackReadyView() {
@@ -129,19 +147,27 @@ public final class PackReadyView extends ScrollPane {
     private VBox form() {
         Label step = label("01", "step-number");
         Label title = label("Build your plan", "panel-title");
-        HBox heading = new HBox(10, step, title);
+        addCategory.setId("add-category");
+        addCategory.getStyleClass().addAll("secondary-button", "add-category-button");
+        addCategory.setOnAction(event -> showCategoryEditor());
+        HBox heading = new HBox(10, step, title, spacer(), addCategory);
         heading.setAlignment(Pos.CENTER_LEFT);
         Label description = label("Start with the supplies already on your shelf.", "muted");
         description.setWrapText(true);
         VBox headingBlock = new VBox(7, heading, description);
 
-        VBox rows = new VBox(0,
-                new SupplyRow("Backpacks", "Carry the essentials", "bag",
-                        PackReadyForm.BACKPACK_STOCK, PackReadyForm.BACKPACK_PRICE, "25", "12.00"),
-                new SupplyRow("Notebooks", "Room for new ideas", "book",
-                        PackReadyForm.NOTEBOOK_STOCK, PackReadyForm.NOTEBOOK_PRICE, "15", "1.00"),
-                new SupplyRow("Pencil cases", "Keep the little things together", "case",
-                        PackReadyForm.PENCIL_CASE_STOCK, PackReadyForm.PENCIL_CASE_PRICE, "8", "2.00"));
+        addDefaultRows(false);
+        prepareCategoryEditor();
+        removedMessage.setWrapText(true);
+        HBox.setHgrow(removedMessage, Priority.ALWAYS);
+        undoRemoval.setId("undo-remove-category");
+        undoRemoval.setAccessibleText("Undo the last category removal");
+        undoRemoval.getStyleClass().addAll("secondary-button", "add-category-button");
+        undoRemoval.setOnAction(event -> undoCategoryRemoval());
+        undoNotice.getChildren().setAll(removedMessage, spacer(), undoRemoval);
+        undoNotice.setAlignment(Pos.CENTER_LEFT);
+        undoNotice.getStyleClass().add("undo-notice");
+        setShown(undoNotice, false);
 
         Label budgetLabel = label("Budget (CAD)", "budget-title");
         Label budgetHelp = label("How much can you spend?", "muted");
@@ -170,18 +196,175 @@ public final class PackReadyView extends ScrollPane {
         calculate.setMaxWidth(Double.MAX_VALUE);
         calculate.getStyleClass().add("primary-button");
         demo.setId("load-demo");
+        demo.setTooltip(new Tooltip("Restore the three demo categories and calculate the $30 example."));
         demo.getStyleClass().add("secondary-button");
         HBox actions = new HBox(10, calculate, demo);
         HBox.setHgrow(calculate, Priority.ALWAYS);
-        Label note = label("One backpack + one notebook + one pencil case = one kit.", "form-note");
+        Label note = label("One item from each category = one complete kit.", "form-note");
         note.setWrapText(true);
         note.setMaxWidth(Double.MAX_VALUE);
 
-        VBox form = new VBox(18, headingBlock, rows, budget, error, actions, note);
+        VBox form = new VBox(18, headingBlock, categoryEditor, undoNotice, rows, budget, error, actions, note);
         form.setId("planner-form");
         form.getStyleClass().add("panel");
         form.setMinWidth(0);
         return form;
+    }
+
+    private void addDefaultRows(boolean fill) {
+        categories.add(new SupplyRow("Backpacks", "Carry the essentials", "bag",
+                PackReadyForm.BACKPACK_STOCK, PackReadyForm.BACKPACK_PRICE, "25", "12.00"));
+        categories.add(new SupplyRow("Notebooks", "Room for new ideas", "book",
+                PackReadyForm.NOTEBOOK_STOCK, PackReadyForm.NOTEBOOK_PRICE, "15", "1.00"));
+        categories.add(new SupplyRow("Pencil cases", "Keep the little things together", "case",
+                PackReadyForm.PENCIL_CASE_STOCK, PackReadyForm.PENCIL_CASE_PRICE, "8", "2.00"));
+        if (fill) {
+            Map<String, String> values = PackReadyForm.demoFields();
+            for (SupplyRow row : categories) {
+                row.stockField.setText(values.get(row.categoryId + "-stock"));
+                row.priceField.setText(values.get(row.categoryId + "-price"));
+            }
+        }
+        updateRows();
+    }
+
+    private void prepareCategoryEditor() {
+        categoryEditor.setId("category-editor");
+        categoryEditor.getStyleClass().add("category-editor");
+        Label nameLabel = label("New category name", "field-label");
+        categoryName.setId("new-category-name");
+        categoryName.setPromptText("e.g. Water bottles");
+        categoryName.setAccessibleText("New category name");
+        categoryName.setMinWidth(0);
+        nameLabel.setLabelFor(categoryName);
+        confirmCategory.setId("confirm-add-category");
+        confirmCategory.getStyleClass().addAll("primary-button", "add-category-button");
+        cancelCategory.setId("cancel-add-category");
+        cancelCategory.getStyleClass().addAll("secondary-button", "add-category-button");
+        cancelCategory.setOnAction(event -> {
+            hideCategoryEditor();
+            addCategory.requestFocus();
+        });
+        categoryName.setOnAction(event -> confirmCategory.fire());
+        categoryName.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ESCAPE) {
+                cancelCategory.fire();
+                event.consume();
+            }
+        });
+        HBox entry = new HBox(8, categoryName, confirmCategory, cancelCategory);
+        entry.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(categoryName, Priority.ALWAYS);
+        categoryError.setId("category-error");
+        categoryError.setWrapText(true);
+        setShown(categoryError, false);
+        categoryEditor.getChildren().setAll(nameLabel, entry, categoryError);
+        setShown(categoryEditor, false);
+    }
+
+    private void showCategoryEditor() {
+        setShown(categoryEditor, true);
+        focusAndReveal(categoryName);
+    }
+
+    private void hideCategoryEditor() {
+        categoryName.clear();
+        categoryName.pseudoClassStateChanged(INVALID, false);
+        categoryName.setAccessibleHelp(null);
+        setShown(categoryError, false);
+        setShown(categoryEditor, false);
+    }
+
+    void showCategoryError(String message) {
+        categoryError.setText(message);
+        setShown(categoryError, true);
+        categoryName.pseudoClassStateChanged(INVALID, true);
+        categoryName.setAccessibleHelp(message);
+        focusAndReveal(categoryName);
+    }
+
+    void addCategory(String name) {
+        String id = "custom-" + nextCategoryId++;
+        SupplyRow row = new SupplyRow(name, "One per kit", "item", id + "-stock", id + "-price", "0", "1.00");
+        row.stockField.setText("0");
+        categories.add(row);
+        clearUndo();
+        hideCategoryEditor();
+        categoriesChanged();
+        focusAndReveal(row.priceField);
+    }
+
+    private void removeCategory(SupplyRow row) {
+        int index = categories.indexOf(row);
+        if (index < 0) { return; }
+        lastRemovedIndex = index;
+        lastRemoved = row;
+        categories.remove(row);
+        fields.remove(row.categoryId + "-stock");
+        fields.remove(row.categoryId + "-price");
+        categoriesChanged();
+        removedMessage.setText("Removed " + row.categoryName + ".");
+        setShown(undoNotice, true);
+        focusAndReveal(undoRemoval);
+    }
+
+    private void undoCategoryRemoval() {
+        if (lastRemoved == null) { return; }
+        SupplyRow row = lastRemoved;
+        categories.add(Math.min(lastRemovedIndex, categories.size()), row);
+        fields.put(row.categoryId + "-stock", row.stockField);
+        fields.put(row.categoryId + "-price", row.priceField);
+        clearUndo();
+        categoriesChanged();
+        focusAndReveal(row.stockField);
+    }
+
+    private void clearUndo() {
+        lastRemoved = null;
+        setShown(undoNotice, false);
+    }
+
+    private void categoriesChanged() {
+        clearError();
+        results.showEmpty();
+        updateRows();
+    }
+
+    private void updateRows() {
+        if (categories.isEmpty()) {
+            Label empty = label("Add a category to start your kit.", "no-categories");
+            empty.setWrapText(true);
+            rows.getChildren().setAll(empty);
+        } else {
+            rows.getChildren().setAll(categories);
+        }
+    }
+
+    void loadDemoCategories() {
+        for (SupplyRow row : categories) {
+            fields.remove(row.categoryId + "-stock");
+            fields.remove(row.categoryId + "-price");
+        }
+        categories.clear();
+        clearUndo();
+        hideCategoryEditor();
+        addDefaultRows(true);
+        fields.get(PackReadyForm.BUDGET).setText("30");
+        categoriesChanged();
+    }
+
+    List<PackReadyForm.CategoryInput> categoryInputs() {
+        return categories.stream().map(row -> new PackReadyForm.CategoryInput(
+                row.categoryId, row.categoryName, row.stockField.getText(), row.priceField.getText())).toList();
+    }
+
+    List<String> categoryNames() { return categories.stream().map(row -> row.categoryName).toList(); }
+    Button confirmCategoryButton() { return confirmCategory; }
+    TextField categoryNameInput() { return categoryName; }
+
+    private static void setShown(Node node, boolean shown) {
+        node.setVisible(shown);
+        node.setManaged(shown);
     }
 
     private Node footer() {
@@ -200,6 +383,7 @@ public final class PackReadyView extends ScrollPane {
         field.setPrefColumnCount(6);
         field.setMinWidth(0);
         field.setMaxWidth(Double.MAX_VALUE);
+        field.setOnAction(event -> calculate.fire());
         fields.put(name, field);
         return field;
     }
@@ -233,21 +417,30 @@ public final class PackReadyView extends ScrollPane {
         if (field != null) {
             field.pseudoClassStateChanged(INVALID, true);
             field.setAccessibleHelp(message);
-            Platform.runLater(() -> {
-                field.requestFocus();
-                // Keep the focused input visible when the panels are stacked.
-                if (stacked) {
-                    applyCss();
-                    layout();
-                    Bounds bounds = getContent().sceneToLocal(field.localToScene(field.getBoundsInLocal()));
-                    double overflow = getContent().getLayoutBounds().getHeight() - getViewportBounds().getHeight();
-                    if (overflow > 0) {
-                        double centered = bounds.getMinY() - getViewportBounds().getHeight() / 2;
-                        setVvalue(Math.max(0, Math.min(1, centered / overflow)));
-                    }
-                }
-            });
+            focusAndReveal(field);
+        } else if (PackReadyForm.CATEGORIES.equals(name)) {
+            showCategoryEditor();
+            categoryName.setAccessibleHelp(message);
         }
+    }
+
+    private void focusAndReveal(Node node) {
+        Platform.runLater(() -> {
+            if (node.getScene() == null) { return; }
+            node.requestFocus();
+            applyCss();
+            layout();
+            Bounds visible = localToScene(getBoundsInLocal());
+            Bounds field = node.localToScene(node.getBoundsInLocal());
+            if (field.getMinY() < visible.getMinY() || field.getMaxY() > visible.getMaxY()) {
+                Bounds content = getContent().sceneToLocal(field);
+                double overflow = getContent().getLayoutBounds().getHeight() - getViewportBounds().getHeight();
+                if (overflow > 0) {
+                    double centered = content.getMinY() - getViewportBounds().getHeight() / 2;
+                    setVvalue(Math.max(0, Math.min(1, centered / overflow)));
+                }
+            }
+        });
     }
 
     Map<String, TextField> fields() { return Collections.unmodifiableMap(fields); }
@@ -268,6 +461,11 @@ public final class PackReadyView extends ScrollPane {
     }
 
     private final class SupplyRow extends GridPane {
+        private final String categoryId;
+        private final String categoryName;
+        private final TextField stockField;
+        private final TextField priceField;
+        private final Button remove = new Button("\u00d7");
         private final HBox identity;
         private final VBox stock;
         private final VBox price;
@@ -275,26 +473,38 @@ public final class PackReadyView extends ScrollPane {
 
         SupplyRow(String name, String help, String icon, String stockName, String priceName,
                   String stockPrompt, String pricePrompt) {
+            categoryId = stockName.substring(0, stockName.length() - "-stock".length());
+            categoryName = name;
+            setId("category-" + categoryId);
             getStyleClass().add("supply-row");
             setHgap(14);
             setVgap(12);
             Label title = label(name, "supply-name");
+            title.setWrapText(true);
             Label hint = label(help, "supply-help");
             hint.setWrapText(true);
             VBox copy = new VBox(4, title, hint);
+            copy.setMinWidth(0);
             identity = new HBox(10, icon(icon), copy);
             identity.setAlignment(Pos.CENTER_LEFT);
             identity.setMinWidth(0);
             HBox.setHgrow(copy, Priority.ALWAYS);
-            TextField stockField = field(stockName, name + " in stock", stockPrompt);
+            stockField = field(stockName, name + " in stock", stockPrompt);
             Label stockLabel = label("In stock", "field-label");
             stockLabel.setLabelFor(stockField);
             stock = new VBox(7, stockLabel, stockField);
-            TextField priceField = field(priceName, name + " unit price in Canadian dollars", pricePrompt);
+            priceField = field(priceName, name + " unit price in Canadian dollars", pricePrompt);
             Label priceLabel = label("Unit price (CAD)", "field-label");
             priceLabel.setLabelFor(priceField);
             price = new VBox(7, priceLabel, moneyInput(priceField));
-            getChildren().addAll(identity, stock, price);
+            remove.setId("remove-" + categoryId);
+            remove.setAccessibleText("Remove " + name + " category");
+            remove.setTooltip(new Tooltip("Remove " + name));
+            remove.getStyleClass().add("remove-category-button");
+            remove.setOnAction(event -> removeCategory(this));
+            GridPane.setFillWidth(remove, false);
+            GridPane.setHalignment(remove, javafx.geometry.HPos.RIGHT);
+            getChildren().addAll(identity, stock, price, remove);
             arrange(false);
             widthProperty().addListener((observable, previous, width) -> arrange(width.doubleValue() < 510));
         }
@@ -304,23 +514,28 @@ public final class PackReadyView extends ScrollPane {
             compact = small;
             ColumnConstraints first = new ColumnConstraints();
             ColumnConstraints second = new ColumnConstraints();
-            first.setPercentWidth(small ? 50 : 42);
-            second.setPercentWidth(small ? 50 : 25);
+            first.setPercentWidth(small ? 50 : 36);
+            second.setPercentWidth(small ? 50 : 23);
             if (small) {
                 getColumnConstraints().setAll(first, second);
             } else {
                 ColumnConstraints third = new ColumnConstraints();
                 third.setPercentWidth(33);
-                getColumnConstraints().setAll(first, second, third);
+                ColumnConstraints fourth = new ColumnConstraints();
+                fourth.setPercentWidth(8);
+                getColumnConstraints().setAll(first, second, third, fourth);
             }
+            identity.setPadding(new Insets(0, small ? 40 : 0, 0, 0));
             GridPane.setConstraints(identity, 0, 0, small ? 2 : 1, 1);
             GridPane.setConstraints(stock, small ? 0 : 1, small ? 1 : 0);
             GridPane.setConstraints(price, small ? 1 : 2, small ? 1 : 0);
+            GridPane.setConstraints(remove, small ? 1 : 3, 0);
         }
     }
 
     static StackPane icon(String kind) {
         String path = switch (kind) {
+            case "item" -> "M3 6 H19 V20 H3 Z M3 6 L11 2 L19 6 M11 6 V20 M7 10 H14";
             case "book" -> "M5 3 H18 V21 H5 Q2 21 2 18 V6 Q2 3 5 3 M5 3 V21 M9 8 H15 M9 12 H15";
             case "case" -> "M3 7 H20 V19 H3 Z M7 7 V4 H16 V7 M3 11 H20 M15 11 V14";
             default -> "M7 7 V5 Q7 2 11 2 Q15 2 15 5 V7 M4 7 H18 L20 21 H2 Z M8 13 H14 V18 H8 Z";

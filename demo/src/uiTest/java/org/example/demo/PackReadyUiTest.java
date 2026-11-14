@@ -14,6 +14,7 @@ import javafx.event.ActionEvent;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.image.PixelFormat;
@@ -39,6 +40,7 @@ public final class PackReadyUiTest {
         private int checks;
         private Stage stage;
         private PackReadyView view;
+        private String customId;
 
         @Override
         public void start(Stage primaryStage) {
@@ -162,6 +164,124 @@ public final class PackReadyUiTest {
                 view.demoButton().fire();
                 view.setVvalue(0);
             });
+            steps.add(() -> {
+                fire("add-category");
+                view.confirmCategoryButton().fire();
+            });
+            steps.add(() -> {
+                check("blank category name is rejected", ((Label) view.lookup("#category-error")).getText().contains("required"));
+                check("invalid add preserves the existing categories", view.categoryInputs().size() == 3);
+                view.categoryNameInput().setText(" Water bottles ");
+                view.categoryNameInput().fireEvent(new ActionEvent());
+            });
+            steps.add(() -> {
+                check("Enter adds a named category", view.categoryInputs().size() == 4
+                        && view.categoryNames().get(3).equals("Water bottles"));
+                customId = view.categoryInputs().get(3).id();
+                check("added category gets stock and price controls", view.fields().size() == 9
+                        && input(customId + "-stock").getText().equals("0"));
+                check("adding a category clears the previous result", view.lookup("#current-kits") == null);
+                check("adding focuses its required price", view.getScene().getFocusOwner() == input(customId + "-price"));
+                input(customId + "-price").setText("0.50");
+                input(customId + "-price").fireEvent(new ActionEvent());
+            });
+            steps.add(() -> {
+                expectPlan("four categories participate in the kit recipe", "0", "17", "CAD $28.50", "CAD $1.50");
+                check("custom purchase is displayed", view.results().getAccessibleText().contains("17 Water bottles"));
+                screenshot("categories-desktop");
+                fire("add-category");
+                view.categoryNameInput().setText("water bottles");
+                view.confirmCategoryButton().fire();
+            });
+            steps.add(() -> {
+                check("duplicate category names are rejected", view.categoryInputs().size() == 4
+                        && ((Label) view.lookup("#category-error")).getText().contains("already exists"));
+                check("name errors are accessible", view.categoryNameInput().getAccessibleHelp().contains("already exists"));
+                fire("cancel-add-category");
+                Button remove = (Button) view.lookup("#remove-" + customId);
+                remove.fire();
+                // A queued second click must not corrupt the saved Undo position.
+                remove.fire();
+            });
+            steps.add(() -> {
+                check("remove deletes only that category and its fields", view.categoryInputs().size() == 3
+                        && !view.fields().containsKey(customId + "-stock") && view.fields().size() == 7);
+                check("remove clears stale results", view.lookup("#current-kits") == null);
+                check("remove offers Undo", view.lookup("#undo-remove-category").isVisible());
+                fire("undo-remove-category");
+            });
+            steps.add(() -> {
+                check("Undo restores category order", view.categoryNames().get(3).equals("Water bottles"));
+                check("Undo restores entered values", input(customId + "-stock").getText().equals("0")
+                        && input(customId + "-price").getText().equals("0.50") && input("budget").getText().equals("30"));
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("Undo restores the original four-category calculation", "0", "17", "CAD $28.50", "CAD $1.50");
+                input(customId + "-price").clear();
+                fire("remove-" + customId);
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("removed invalid fields no longer block calculation", "8", "20", "CAD $29.00", "CAD $1.00");
+                fire("remove-pencil-case");
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("default categories can be removed too", "15", "26", "CAD $23.00", "CAD $7.00");
+                fire("undo-remove-category");
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("Undo restores a default category", "8", "20", "CAD $29.00", "CAD $1.00");
+                for (PackReadyForm.CategoryInput category : view.categoryInputs()) {
+                    fire("remove-" + category.id());
+                }
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                check("empty category list gets a helpful validation message", view.categoryInputs().isEmpty()
+                        && ((Label) view.lookup("#form-error")).getText().contains("at least one"));
+                check("empty category list focuses the add editor", view.getScene().getFocusOwner() == view.categoryNameInput());
+                check("no orphaned fields remain after removing all categories", view.fields().size() == 1);
+                fire("undo-remove-category");
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("a single restored category can form kits", "8", "23", "CAD $30.00", "CAD $0.00");
+                view.demoButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("Load demo resets categories and runs the shared example", "8", "20", "CAD $29.00", "CAD $1.00");
+                check("demo restores exactly the three original categories", view.categoryInputs().size() == 3 && view.fields().size() == 7);
+                fire("add-category");
+                view.categoryNameInput().setText("Water bottles");
+                view.confirmCategoryButton().fire();
+                customId = view.categoryInputs().get(3).id();
+                input(customId + "-price").setText("0.50");
+                view.calculateButton().fire();
+                stage.setWidth(420);
+                view.setVvalue(0);
+            });
+            steps.add(() -> {
+                Bounds form = view.lookup("#planner-form").localToScene(view.lookup("#planner-form").getBoundsInLocal());
+                for (TextField field : view.fields().values()) {
+                    Bounds bounds = field.localToScene(field.getBoundsInLocal());
+                    check(field.getId() + " fits the editable-category minimum layout",
+                            bounds.getMinX() >= form.getMinX() && bounds.getMaxX() <= form.getMaxX());
+                }
+                screenshot("categories-minimum");
+                fire("add-category");
+            });
+            steps.add(() -> {
+                Bounds form = view.lookup("#planner-form").localToScene(view.lookup("#planner-form").getBoundsInLocal());
+                Bounds entry = view.categoryNameInput().localToScene(view.categoryNameInput().getBoundsInLocal());
+                check("add editor fits the minimum window", entry.getMinX() >= form.getMinX() && entry.getMaxX() <= form.getMaxX());
+                screenshot("category-editor-minimum");
+                fire("cancel-add-category");
+                stage.setWidth(1120);
+                view.setVvalue(0);
+            });
             steps.add(() -> screenshot("final-desktop"));
             next();
         }
@@ -189,6 +309,7 @@ public final class PackReadyUiTest {
         }
 
         private TextField input(String id) { return view.fields().get(id); }
+        private void fire(String id) { ((Button) view.lookup("#" + id)).fire(); }
 
         private void expectPlan(String label, String current, String planned, String total, String left) {
             check(label, current.equals(((Label) view.lookup("#current-kits")).getText())

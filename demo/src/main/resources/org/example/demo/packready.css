@@ -127,3 +127,21 @@
 .app-scroll:narrow .panel { -fx-padding: 20; }
 .app-scroll:narrow .hero-title { -fx-font-size: 28px; }
 .app-scroll:narrow .supply-row { -fx-padding: 18 0; }
+.add-category-button { -fx-font-size: 11px; -fx-padding: 6 10; }
+.remove-category-button {
+    -fx-font-size: 20px;
+    -fx-font-weight: normal;
+    -fx-text-fill: #7a8277;
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-border-color: transparent;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+    -fx-padding: 1 6;
+    -fx-min-width: 28;
+}
+.remove-category-button:hover { -fx-text-fill: #9c3c2c; -fx-background-color: #fff1ed; }
+.remove-category-button:focused { -fx-border-color: #2d7358; }
+.category-editor { -fx-background-color: #f1f5ed; -fx-background-radius: 9; -fx-padding: 13; }
+.undo-notice { -fx-background-color: #f1f5ed; -fx-background-radius: 8; -fx-padding: 8 11; }
+.no-categories { -fx-font-size: 13px; -fx-text-fill: #5e725f; -fx-padding: 20 0; }

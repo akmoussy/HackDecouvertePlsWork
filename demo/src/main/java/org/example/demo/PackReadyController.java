@@ -1,9 +1,7 @@
 package org.example.demo;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Connects the JavaFX form to the independently tested Java logic. */
 final class PackReadyController {
@@ -13,21 +11,28 @@ final class PackReadyController {
         this.view = view;
         view.calculateButton().setOnAction(event -> calculate());
         view.demoButton().setOnAction(event -> loadDemo());
-        view.fields().values().forEach(field -> field.setOnAction(event -> calculate()));
+        view.confirmCategoryButton().setOnAction(event -> addCategory());
     }
 
     private void loadDemo() {
-        PackReadyForm.demoFields().forEach((name, text) -> view.fields().get(name).setText(text));
+        view.loadDemoCategories();
         calculate();
+    }
+
+    private void addCategory() {
+        try {
+            String name = PackReadyForm.parseCategoryName(view.categoryNameInput().getText(), view.categoryNames());
+            view.addCategory(name);
+        } catch (IllegalArgumentException exception) {
+            view.showCategoryError(exception.getMessage());
+        }
     }
 
     private void calculate() {
         view.clearError();
-        Map<String, String> raw = new LinkedHashMap<>();
-        view.fields().forEach((name, field) -> raw.put(name, field.getText()));
-
         try {
-            PackReadyForm.Request request = PackReadyForm.parse(raw);
+            PackReadyForm.Request request = PackReadyForm.parseCategories(
+                    view.categoryInputs(), view.fields().get(PackReadyForm.BUDGET).getText());
             List<Planner.Item> items = new ArrayList<>();
             for (PackReadyForm.Item item : request.getItems()) {
                 items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents()));
@@ -36,7 +41,7 @@ final class PackReadyController {
             // Do not display a negative kit count from the known upstream int overflow.
             if (plan.plannedKits() < plan.currentKits()
                     || plan.totalCents() < 0 || plan.remainingCents() < 0) {
-                view.showError(PackReadyForm.BACKPACK_STOCK,
+                view.showError(view.categoryInputs().get(0).id() + "-stock",
                         "These values are too large to calculate safely. Try smaller stock counts or a smaller budget.");
                 return;
             }

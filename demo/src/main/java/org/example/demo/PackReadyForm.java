@@ -2,9 +2,12 @@ package org.example.demo;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Plain Java form reading, independent of JavaFX and the team's planner. */
 public final class PackReadyForm {
@@ -15,6 +18,7 @@ public final class PackReadyForm {
     public static final String PENCIL_CASE_STOCK = "pencil-case-stock";
     public static final String PENCIL_CASE_PRICE = "pencil-case-price";
     public static final String BUDGET = "budget";
+    public static final String CATEGORIES = "categories";
 
     private PackReadyForm() {
     }
@@ -39,6 +43,61 @@ public final class PackReadyForm {
 
         // Return a complete request only after every field has passed validation.
         return new Request(items, budgetCents);
+    }
+
+    /** Raw text for one active category. Its stable id identifies invalid fields. */
+    public record CategoryInput(String id, String name, String stock, String unitPrice) {}
+
+    /** Reads any nonempty list of categories, with one item per category per kit. */
+    public static Request parseCategories(List<CategoryInput> categories, String budget) {
+        if (categories == null || categories.isEmpty()) {
+            throw new FieldValidationException(CATEGORIES, "Add at least one category before calculating.");
+        }
+        List<Item> items = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        for (CategoryInput category : categories) {
+            if (category == null || category.id() == null
+                    || !category.id().matches("[A-Za-z][A-Za-z0-9-]*") || !ids.add(category.id())) {
+                throw new FieldValidationException(CATEGORIES, "Each category must have a unique identifier.");
+            }
+            String name;
+            try {
+                name = parseCategoryName(category.name(), names);
+            } catch (IllegalArgumentException exception) {
+                throw new FieldValidationException(category.id() + "-name", exception.getMessage(), exception);
+            }
+            names.add(name);
+            String stockField = category.id() + "-stock";
+            String priceField = category.id() + "-price";
+            Map<String, String> raw = new HashMap<>();
+            raw.put(stockField, category.stock());
+            raw.put(priceField, category.unitPrice());
+            items.add(readItem(raw, name, stockField, priceField));
+        }
+        Map<String, String> rawBudget = new HashMap<>();
+        rawBudget.put(BUDGET, budget);
+        return new Request(items, readMoney(rawBudget, BUDGET, null, true));
+    }
+
+    /** Trims a category name and rejects missing, duplicate, or unreadable names. */
+    public static String parseCategoryName(String input, Iterable<String> existingNames) {
+        if (input == null || input.isBlank()) {
+            throw new IllegalArgumentException("Category name is required.");
+        }
+        String name = input.strip();
+        if (name.length() > 60) {
+            throw new IllegalArgumentException("Keep category names to 60 characters or fewer.");
+        }
+        if (name.codePoints().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Use a single line of text for the category name.");
+        }
+        for (String existing : existingNames) {
+            if (name.equalsIgnoreCase(existing)) {
+                throw new IllegalArgumentException("A category with this name already exists.");
+            }
+        }
+        return name;
     }
 
     /** Fresh, editable demo text for the controller to put in its seven fields. */
@@ -128,6 +187,11 @@ public final class PackReadyForm {
     public static final class FieldValidationException extends IllegalArgumentException {
         private static final long serialVersionUID = 1L;
         private final String fieldName;
+
+        private FieldValidationException(String fieldName, String message) {
+            super(message);
+            this.fieldName = fieldName;
+        }
 
         private FieldValidationException(String fieldName, String message,
                                          IllegalArgumentException cause) {

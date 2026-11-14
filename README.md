@@ -1,11 +1,11 @@
 # HackDecouvertePlsWork
 
 PackReady helps donation-drive volunteers decide what to buy to complete the
-most school kits within a budget. The JavaFX application now includes the seven
-input fields, Calculate, Load demo, validation feedback, and a shopping-plan
+most school kits within a budget. The JavaFX application now includes editable
+supply categories, Calculate, Load demo, validation feedback, and a shopping-plan
 panel. The layout uses two columns on a laptop and stacks on smaller windows.
 
-![PackReady JavaFX application showing the $30 demo](docs/packready-preview.png)
+![PackReady JavaFX application with an added Water bottles category](docs/packready-preview.png)
 
 ## Open the app from VS Code
 
@@ -31,6 +31,39 @@ shopping, $29 spent, and $1 left. Change the budget to **32** and press Enter or
 Calculate to see 21 kits. A zero budget keeps the counts and totals visible with
 an empty-shopping message.
 
+## Add and remove categories
+
+- Click **+ Add category**, enter a unique name, and click **Add** or press Enter.
+  The new row starts with zero stock; enter its positive unit price before
+  calculating. Names can have up to 60 characters and duplicates ignore case.
+- Click **×** beside a category to remove it from the kit recipe. **Undo** restores
+  the most recently removed row, its position, and its entered values.
+- Every selected category contributes one item to each complete kit. Changes to
+  the category list clear the old plan until you calculate again. At least one
+  category is required to calculate.
+- **Load demo** resets all categories and values to the original three-category
+  $30 example. Category edits, like the other form values, last for this window's
+  session; they are not saved across restarts.
+
+For example, add Water bottles with zero stock and a $0.50 unit price to the
+$30 demo. The new recipe produces 17 kits, spends $28.50, and leaves $1.50.
+
+## Return to the previous UI
+
+This feature is isolated on the `categories` branch. The previous UI remains on
+`layout`, and the published tag `ui-before-categories` records its exact commit,
+`1e372a3`. No reset or deletion of the new work is needed to go back.
+
+Close the running window, then switch and reopen:
+
+```sh
+git switch layout
+sh scripts/run-packready.sh
+```
+
+Use `git switch categories` to return to this feature. The saved tag also lets us
+recover the exact previous UI if `layout` is changed later.
+
 ## Source layout
 
 All production classes use `package org.example.demo;` in
@@ -39,7 +72,7 @@ All production classes use `package org.example.demo;` in
 | Class | Purpose |
 | --- | --- |
 | `PackReadyInputs` | Parses stock counts and exact integer cents; rejects invalid text. |
-| `PackReadyForm` | Validates all seven fields, identifies the first invalid field, and supplies demo values. |
+| `PackReadyForm` | Validates selected categories and budget, identifies the first invalid field, and supplies demo values. |
 | `Planner` | The team's purchase planner and its `Item`, `Purchase`, and `Plan` records. |
 | `PackReadyResults` | Formats the supplied plan in CAD and replaces the previous text result. |
 | `PackReadyView` | Responsive supply form, labels, focus styles, and validation feedback. |
@@ -66,7 +99,7 @@ planner, results, and combined-flow checks. The checks use core Java and need
 no JavaFX toolkit or external test library. The script reports the temporary
 directory containing the compiled classes; it writes no classes into the repo.
 
-The parser, form, results, and flow suites have 164 checks in total. The planner
+The parser, form, results, flow, and category suites have 191 checks in total. The planner
 suite also includes its existing comparison with 2,000 generated cases. The
 combined-flow checks pass raw form text through validation, adaptation to
 `Planner.Item`, the actual planner, and the results setter. They cover $0, $30,
@@ -81,19 +114,22 @@ the existing Gradle `test` task uses JUnit discovery instead.
 sh scripts/test-packready-ui.sh
 ```
 
-This opens a test window briefly, runs 53 checks, saves screenshots under
+This opens a test window briefly, runs 88 checks, saves screenshots under
 `/tmp/packready-ui-shots`, and closes the window. It checks the $30/$32/$0 plans,
 the Enter action, demo loading, zero stock, invalid/blank input, field focus,
 accessible field errors, stale-result clearing, and layouts down to 420px wide.
+It also exercises category addition, duplicate names, deletion, Undo with the
+original values, empty/single-category kits, and demo reset after editing.
 Desktop, stacked, error, and minimum-width screenshots have been inspected.
 
 ## How the controller connects the Java code
 
-`PackReadyController` collects the seven raw text fields, validates them with
+`PackReadyController` collects the active rows and budget, validates them with
 `PackReadyForm`, adapts the items, and calls the planner. Its Java data flow is:
 
 ```java
-PackReadyForm.Request request = PackReadyForm.parse(rawText);
+PackReadyForm.Request request = PackReadyForm.parseCategories(
+        view.categoryInputs(), view.fields().get(PackReadyForm.BUDGET).getText());
 List<Planner.Item> items = new ArrayList<>();
 for (PackReadyForm.Item item : request.getItems()) {
     items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents()));
@@ -123,7 +159,8 @@ path as Calculate and the text fields' Enter actions.
   `archive/packready-app` and `archive/packready-results`.
 
 The source history is from `wazz64/HackDecouvert2026WWYJ`. The combined transfer
-is preserved on `packready-transfer`; the JavaFX UI is on `layout`.
+is preserved on `packready-transfer`; the original JavaFX UI is on `layout` and
+the category editor is on `categories`.
 
 There is one confirmed planner follow-up: at maximum `int` stock counts, its
 next target can overflow into a negative kit count. The reproduction and tested
