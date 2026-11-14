@@ -18,19 +18,34 @@ public final class PackReadyInputs {
      * @throws IllegalArgumentException if input is missing, malformed, or too large
      */
     public static int parseStock(String input) {
-        String text = requireText(input, "Stock");
+        return parseWholeNumber(input, "Stock", true);
+    }
+
+    /** Parses a strictly positive number of items required for each kit. */
+    public static int parseRequiredQuantity(String input) {
+        return parseWholeNumber(input, "Required quantity", false);
+    }
+
+    private static int parseWholeNumber(String input, String field, boolean allowZero) {
+        String text = requireText(input, field);
 
         // Validate the text before conversion: digits only, with no sign or decimal.
         if (!text.matches("[0-9]+")) {
-            throw new IllegalArgumentException("Stock must be a nonnegative whole number.");
+            throw new IllegalArgumentException(field + " must be "
+                    + (allowZero ? "a nonnegative" : "a positive") + " whole number.");
         }
 
+        int value;
         try {
-            return Integer.parseInt(text);
+            value = Integer.parseInt(text);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(
-                    "Stock must be at most " + Integer.MAX_VALUE + ".", exception);
+                    field + " must be at most " + Integer.MAX_VALUE + ".", exception);
         }
+        if (!allowZero && value == 0) {
+            throw new IllegalArgumentException(field + " must be at least 1.");
+        }
+        return value;
     }
 
     /**

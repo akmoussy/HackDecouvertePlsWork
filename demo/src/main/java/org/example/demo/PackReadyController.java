@@ -6,6 +6,7 @@ import java.util.List;
 /** Connects the JavaFX form to the independently tested Java logic. */
 final class PackReadyController {
     private final PackReadyView view;
+    private final PackReadyDemo demo = new PackReadyDemo();
 
     PackReadyController(PackReadyView view) {
         this.view = view;
@@ -15,7 +16,7 @@ final class PackReadyController {
     }
 
     private void loadDemo() {
-        view.loadDemoCategories();
+        view.loadDemoCategories(demo.nextFields());
         calculate();
     }
 
@@ -35,10 +36,10 @@ final class PackReadyController {
                     view.categoryInputs(), view.fields().get(PackReadyForm.BUDGET).getText());
             List<Planner.Item> items = new ArrayList<>();
             for (PackReadyForm.Item item : request.getItems()) {
-                items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents()));
+                items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents(), item.getRequiredQuantity()));
             }
             Planner.Plan plan = Planner.planPurchase(items, request.getBudgetCents());
-            // Do not display a negative kit count from the known upstream int overflow.
+            // Keep invalid planner output out of the interface.
             if (plan.plannedKits() < plan.currentKits()
                     || plan.totalCents() < 0 || plan.remainingCents() < 0) {
                 view.showError(view.categoryInputs().get(0).id() + "-stock",

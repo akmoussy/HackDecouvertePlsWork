@@ -33,7 +33,7 @@ final class PackReadyResultsPane extends VBox {
         title.setMaxWidth(Double.MAX_VALUE);
         help.setAlignment(Pos.CENTER);
         help.setMaxWidth(270);
-        Label kit = PackReadyView.label("One item from each category makes one complete kit.", "kit-recipe");
+        Label kit = PackReadyView.label("Every kit includes the required quantity from each category.", "kit-recipe");
         kit.setWrapText(true);
         kit.setMaxWidth(Double.MAX_VALUE);
         getChildren().setAll(header, empty, kit);

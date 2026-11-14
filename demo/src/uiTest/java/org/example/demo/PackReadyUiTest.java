@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import javax.imageio.ImageIO;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
@@ -41,6 +43,7 @@ public final class PackReadyUiTest {
         private Stage stage;
         private PackReadyView view;
         private String customId;
+        private Map<String, String> previousDemo;
 
         @Override
         public void start(Stage primaryStage) {
@@ -54,7 +57,7 @@ public final class PackReadyUiTest {
             stage.show();
 
             steps.add(() -> {
-                check("all seven raw fields are present", view.fields().size() == 7);
+                check("all ten fields including per-kit quantities are present", view.fields().size() == 10);
                 check("Calculate is the default button", view.calculateButton().isDefaultButton());
                 check("empty form starts with guidance", view.lookup("#current-kits") == null);
                 for (TextField field : view.fields().values()) {
@@ -65,10 +68,10 @@ public final class PackReadyUiTest {
                             labeled && field.getAccessibleText() != null);
                 }
                 screenshot("initial-desktop");
-                view.demoButton().fire();
+                loadReference();
             });
             steps.add(() -> {
-                expectPlan("$30 demo", "8", "20", "CAD $29.00", "CAD $1.00");
+                expectPlan("$30 fixed reference", "8", "20", "CAD $29.00", "CAD $1.00");
                 check("shopping quantities are visible", view.results().getAccessibleText().contains("5 Notebooks")
                         && view.results().getAccessibleText().contains("12 Pencil cases"));
                 screenshot("desktop-plan");
@@ -85,25 +88,25 @@ public final class PackReadyUiTest {
                 expectPlan("$0 calculation", "8", "8", "CAD $0.00", "CAD $0.00");
                 check("empty result has no stale purchases", view.results().getAccessibleText().contains("can\u2019t complete")
                         && !view.results().getAccessibleText().contains("Notebooks:"));
-                view.demoButton().fire();
+                loadReference();
                 input("notebook-stock").clear();
                 view.calculateButton().fire();
             });
             steps.add(() -> {
                 expectError("blank stock", "notebook-stock", "required");
-                view.demoButton().fire();
+                loadReference();
                 input("backpack-price").setText("12.001");
                 view.calculateButton().fire();
             });
             steps.add(() -> {
                 expectError("extra decimal place", "backpack-price", "two decimal places");
-                view.demoButton().fire();
+                loadReference();
                 input("pencil-case-price").setText("0");
                 view.calculateButton().fire();
             });
             steps.add(() -> {
                 expectError("zero unit price", "pencil-case-price", "greater than zero");
-                view.demoButton().fire();
+                loadReference();
                 input("backpack-stock").setText("2147483647");
                 input("notebook-stock").setText("2147483647");
                 input("pencil-case-stock").setText("2147483647");
@@ -111,10 +114,10 @@ public final class PackReadyUiTest {
                 view.calculateButton().fire();
             });
             steps.add(() -> {
-                expectError("upstream overflow never displays negative kits", "backpack-stock", "too large");
+                expectPlan("maximum stock stays representable", "2147483647", "2147483647", "CAD $0.00", "CAD $15.00");
                 stage.setWidth(600);
                 stage.setHeight(850);
-                view.demoButton().fire();
+                loadReference();
                 view.setVvalue(0);
             });
             steps.add(() -> {
@@ -140,7 +143,7 @@ public final class PackReadyUiTest {
                 screenshot("narrow-error");
                 stage.setWidth(420);
                 stage.setHeight(850);
-                view.demoButton().fire();
+                loadReference();
                 view.setVvalue(0);
             });
             steps.add(() -> {
@@ -154,14 +157,14 @@ public final class PackReadyUiTest {
                 screenshot("minimum-window");
                 stage.setWidth(1120);
                 stage.setHeight(850);
-                view.demoButton().fire();
+                loadReference();
                 input("backpack-stock").setText("0");
                 view.calculateButton().fire();
             });
             steps.add(() -> {
                 expectPlan("zero stock", "0", "2", "CAD $24.00", "CAD $6.00");
                 check("success clears validation errors", !view.lookup("#form-error").isVisible());
-                view.demoButton().fire();
+                loadReference();
                 view.setVvalue(0);
             });
             steps.add(() -> {
@@ -178,7 +181,7 @@ public final class PackReadyUiTest {
                 check("Enter adds a named category", view.categoryInputs().size() == 4
                         && view.categoryNames().get(3).equals("Water bottles"));
                 customId = view.categoryInputs().get(3).id();
-                check("added category gets stock and price controls", view.fields().size() == 9
+                check("added category gets stock and price controls", view.fields().size() == 13
                         && input(customId + "-stock").getText().equals("0"));
                 check("adding a category clears the previous result", view.lookup("#current-kits") == null);
                 check("adding focuses its required price", view.getScene().getFocusOwner() == input(customId + "-price"));
@@ -205,7 +208,7 @@ public final class PackReadyUiTest {
             });
             steps.add(() -> {
                 check("remove deletes only that category and its fields", view.categoryInputs().size() == 3
-                        && !view.fields().containsKey(customId + "-stock") && view.fields().size() == 7);
+                        && !view.fields().containsKey(customId + "-stock") && view.fields().size() == 10);
                 check("remove clears stale results", view.lookup("#current-kits") == null);
                 check("remove offers Undo", view.lookup("#undo-remove-category").isVisible());
                 fire("undo-remove-category");
@@ -249,11 +252,11 @@ public final class PackReadyUiTest {
             });
             steps.add(() -> {
                 expectPlan("a single restored category can form kits", "8", "23", "CAD $30.00", "CAD $0.00");
-                view.demoButton().fire();
+                loadReference();
             });
             steps.add(() -> {
-                expectPlan("Load demo resets categories and runs the shared example", "8", "20", "CAD $29.00", "CAD $1.00");
-                check("demo restores exactly the three original categories", view.categoryInputs().size() == 3 && view.fields().size() == 7);
+                expectPlan("fixed reference reload restores the shared example", "8", "20", "CAD $29.00", "CAD $1.00");
+                check("fixed reference restores exactly three categories", view.categoryInputs().size() == 3 && view.fields().size() == 10);
                 fire("add-category");
                 view.categoryNameInput().setText("Water bottles");
                 view.confirmCategoryButton().fire();
@@ -282,7 +285,73 @@ public final class PackReadyUiTest {
                 stage.setWidth(1120);
                 view.setVvalue(0);
             });
-            steps.add(() -> screenshot("final-desktop"));
+
+            steps.add(() -> {
+                input(customId + "-required").setText("2");
+                input(customId + "-required").fireEvent(new ActionEvent());
+            });
+            steps.add(() -> {
+                expectPlan("two water bottles per kit change purchases and cost", "0", "15", "CAD $29.00", "CAD $1.00");
+                check("shopping list shows actual item units", view.results().getAccessibleText().contains("30 Water bottles"));
+                fire("remove-" + customId);
+                fire("undo-remove-category");
+            });
+            steps.add(() -> {
+                check("Undo preserves required quantities", input(customId + "-required").getText().equals("2"));
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("restored quantity still affects the plan", "0", "15", "CAD $29.00", "CAD $1.00");
+                input(customId + "-required").setText("0");
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectError("zero required quantity", customId + "-required", "at least 1");
+                input(customId + "-required").setText("2.5");
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectError("fractional required quantity", customId + "-required", "positive");
+                input(customId + "-required").clear();
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectError("missing required quantity", customId + "-required", "required");
+                input(customId + "-required").setText("2");
+                input("backpack-required").setText("2");
+                input("notebook-required").setText("3");
+                view.calculateButton().fire();
+            });
+            steps.add(() -> {
+                expectPlan("all entered quantities are used together", "0", "10", "CAD $29.00", "CAD $1.00");
+                screenshot("quantities-desktop");
+                stage.setWidth(420);
+                view.setVvalue(0);
+            });
+            steps.add(() -> {
+                Bounds form = view.lookup("#planner-form").localToScene(view.lookup("#planner-form").getBoundsInLocal());
+                for (TextField field : view.fields().values()) {
+                    Bounds bounds = field.localToScene(field.getBoundsInLocal());
+                    check(field.getId() + " quantity layout fits 420px", bounds.getMinX() >= form.getMinX()
+                            && bounds.getMaxX() <= form.getMaxX());
+                }
+                screenshot("quantities-minimum");
+                stage.setWidth(1120);
+                view.demoButton().fire();
+                view.setVvalue(0);
+            });
+            steps.add(() -> {
+                check("random demo restores three complete rows", view.categoryInputs().size() == 3 && view.fields().size() == 10);
+                expectDisplayedPlanMatchesInputs("random demo calculates from its actual quantities");
+                previousDemo = rawFields();
+                view.demoButton().fire();
+            });
+            steps.add(() -> {
+                check("successive demo clicks use fresh values", !previousDemo.equals(rawFields()));
+                expectDisplayedPlanMatchesInputs("fresh random demo updates the displayed totals");
+                check("random demo clears previous validation errors", !view.lookup("#form-error").isVisible());
+                screenshot("final-desktop");
+            });
             next();
         }
 
@@ -306,6 +375,27 @@ public final class PackReadyUiTest {
                 }
             });
             pause.play();
+        }
+
+
+        private void loadReference() {
+            view.loadDemoCategories(PackReadyForm.demoFields());
+            view.calculateButton().fire();
+        }
+
+        private Map<String, String> rawFields() {
+            Map<String, String> values = new LinkedHashMap<>();
+            view.fields().forEach((name, field) -> values.put(name, field.getText()));
+            return values;
+        }
+
+        private void expectDisplayedPlanMatchesInputs(String label) {
+            PackReadyForm.Request request = PackReadyForm.parseCategories(view.categoryInputs(), input("budget").getText());
+            Planner.Plan expected = Planner.planPurchase(request.getItems().stream().map(item -> new Planner.Item(
+                    item.getName(), item.getStock(), item.getUnitPriceCents(), item.getRequiredQuantity())).toList(),
+                    request.getBudgetCents());
+            expectPlan(label, Integer.toString(expected.currentKits()), Integer.toString(expected.plannedKits()),
+                    PackReadyResults.formatCad(expected.totalCents()), PackReadyResults.formatCad(expected.remainingCents()));
         }
 
         private TextField input(String id) { return view.fields().get(id); }

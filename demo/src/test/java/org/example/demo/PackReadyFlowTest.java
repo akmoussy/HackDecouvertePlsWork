@@ -68,7 +68,7 @@ public final class PackReadyFlowTest {
         PackReadyForm.Request request = PackReadyForm.parse(fields);
         List<Planner.Item> items = new ArrayList<>();
         for (PackReadyForm.Item item : request.getItems()) {
-            items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents()));
+            items.add(new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents(), item.getRequiredQuantity()));
         }
         return Planner.planPurchase(items, request.getBudgetCents());
     }

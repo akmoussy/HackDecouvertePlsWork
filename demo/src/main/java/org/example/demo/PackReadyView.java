@@ -156,7 +156,7 @@ public final class PackReadyView extends ScrollPane {
         description.setWrapText(true);
         VBox headingBlock = new VBox(7, heading, description);
 
-        addDefaultRows(false);
+        addDefaultRows();
         prepareCategoryEditor();
         removedMessage.setWrapText(true);
         HBox.setHgrow(removedMessage, Priority.ALWAYS);
@@ -196,11 +196,11 @@ public final class PackReadyView extends ScrollPane {
         calculate.setMaxWidth(Double.MAX_VALUE);
         calculate.getStyleClass().add("primary-button");
         demo.setId("load-demo");
-        demo.setTooltip(new Tooltip("Restore the three demo categories and calculate the $30 example."));
+        demo.setTooltip(new Tooltip("Generate fresh per-kit quantities, stock, prices, and a budget for the three demo categories."));
         demo.getStyleClass().add("secondary-button");
         HBox actions = new HBox(10, calculate, demo);
         HBox.setHgrow(calculate, Priority.ALWAYS);
-        Label note = label("One item from each category = one complete kit.", "form-note");
+        Label note = label("Each kit uses the required quantity from every category.", "form-note");
         note.setWrapText(true);
         note.setMaxWidth(Double.MAX_VALUE);
 
@@ -211,20 +211,13 @@ public final class PackReadyView extends ScrollPane {
         return form;
     }
 
-    private void addDefaultRows(boolean fill) {
+    private void addDefaultRows() {
         categories.add(new SupplyRow("Backpacks", "Carry the essentials", "bag",
                 PackReadyForm.BACKPACK_STOCK, PackReadyForm.BACKPACK_PRICE, "25", "12.00"));
         categories.add(new SupplyRow("Notebooks", "Room for new ideas", "book",
                 PackReadyForm.NOTEBOOK_STOCK, PackReadyForm.NOTEBOOK_PRICE, "15", "1.00"));
         categories.add(new SupplyRow("Pencil cases", "Keep the little things together", "case",
                 PackReadyForm.PENCIL_CASE_STOCK, PackReadyForm.PENCIL_CASE_PRICE, "8", "2.00"));
-        if (fill) {
-            Map<String, String> values = PackReadyForm.demoFields();
-            for (SupplyRow row : categories) {
-                row.stockField.setText(values.get(row.categoryId + "-stock"));
-                row.priceField.setText(values.get(row.categoryId + "-price"));
-            }
-        }
         updateRows();
     }
 
@@ -285,7 +278,7 @@ public final class PackReadyView extends ScrollPane {
 
     void addCategory(String name) {
         String id = "custom-" + nextCategoryId++;
-        SupplyRow row = new SupplyRow(name, "One per kit", "item", id + "-stock", id + "-price", "0", "1.00");
+        SupplyRow row = new SupplyRow(name, "Custom supply", "item", id + "-stock", id + "-price", "0", "1.00");
         row.stockField.setText("0");
         categories.add(row);
         clearUndo();
@@ -302,6 +295,7 @@ public final class PackReadyView extends ScrollPane {
         categories.remove(row);
         fields.remove(row.categoryId + "-stock");
         fields.remove(row.categoryId + "-price");
+        fields.remove(row.categoryId + "-required");
         categoriesChanged();
         removedMessage.setText("Removed " + row.categoryName + ".");
         setShown(undoNotice, true);
@@ -314,6 +308,7 @@ public final class PackReadyView extends ScrollPane {
         categories.add(Math.min(lastRemovedIndex, categories.size()), row);
         fields.put(row.categoryId + "-stock", row.stockField);
         fields.put(row.categoryId + "-price", row.priceField);
+        fields.put(row.categoryId + "-required", row.requiredField);
         clearUndo();
         categoriesChanged();
         focusAndReveal(row.stockField);
@@ -340,22 +335,27 @@ public final class PackReadyView extends ScrollPane {
         }
     }
 
-    void loadDemoCategories() {
+    void loadDemoCategories(Map<String, String> values) {
         for (SupplyRow row : categories) {
             fields.remove(row.categoryId + "-stock");
             fields.remove(row.categoryId + "-price");
+            fields.remove(row.categoryId + "-required");
         }
         categories.clear();
         clearUndo();
         hideCategoryEditor();
-        addDefaultRows(true);
-        fields.get(PackReadyForm.BUDGET).setText("30");
+        addDefaultRows();
+        values.forEach((name, value) -> {
+            TextField field = fields.get(name);
+            if (field != null) { field.setText(value); }
+        });
         categoriesChanged();
     }
 
     List<PackReadyForm.CategoryInput> categoryInputs() {
         return categories.stream().map(row -> new PackReadyForm.CategoryInput(
-                row.categoryId, row.categoryName, row.stockField.getText(), row.priceField.getText())).toList();
+                row.categoryId, row.categoryName, row.stockField.getText(), row.priceField.getText(),
+                row.requiredField.getText())).toList();
     }
 
     List<String> categoryNames() { return categories.stream().map(row -> row.categoryName).toList(); }
@@ -465,10 +465,12 @@ public final class PackReadyView extends ScrollPane {
         private final String categoryName;
         private final TextField stockField;
         private final TextField priceField;
+        private final TextField requiredField;
         private final Button remove = new Button("\u00d7");
         private final HBox identity;
         private final VBox stock;
         private final VBox price;
+        private final VBox required;
         private Boolean compact;
 
         SupplyRow(String name, String help, String icon, String stockName, String priceName,
@@ -489,6 +491,11 @@ public final class PackReadyView extends ScrollPane {
             identity.setAlignment(Pos.CENTER_LEFT);
             identity.setMinWidth(0);
             HBox.setHgrow(copy, Priority.ALWAYS);
+            requiredField = field(categoryId + "-required", name + " required quantity per kit", "1");
+            requiredField.setText("1");
+            Label requiredLabel = label("Per kit", "field-label");
+            requiredLabel.setLabelFor(requiredField);
+            required = new VBox(7, requiredLabel, requiredField);
             stockField = field(stockName, name + " in stock", stockPrompt);
             Label stockLabel = label("In stock", "field-label");
             stockLabel.setLabelFor(stockField);
@@ -504,7 +511,7 @@ public final class PackReadyView extends ScrollPane {
             remove.setOnAction(event -> removeCategory(this));
             GridPane.setFillWidth(remove, false);
             GridPane.setHalignment(remove, javafx.geometry.HPos.RIGHT);
-            getChildren().addAll(identity, stock, price, remove);
+            getChildren().addAll(identity, required, stock, price, remove);
             arrange(false);
             widthProperty().addListener((observable, previous, width) -> arrange(width.doubleValue() < 510));
         }
@@ -514,22 +521,25 @@ public final class PackReadyView extends ScrollPane {
             compact = small;
             ColumnConstraints first = new ColumnConstraints();
             ColumnConstraints second = new ColumnConstraints();
-            first.setPercentWidth(small ? 50 : 36);
-            second.setPercentWidth(small ? 50 : 23);
+            first.setPercentWidth(28);
+            second.setPercentWidth(small ? 28 : 16);
+            ColumnConstraints third = new ColumnConstraints();
+            third.setPercentWidth(small ? 44 : 16);
             if (small) {
-                getColumnConstraints().setAll(first, second);
+                getColumnConstraints().setAll(first, second, third);
             } else {
-                ColumnConstraints third = new ColumnConstraints();
-                third.setPercentWidth(33);
                 ColumnConstraints fourth = new ColumnConstraints();
-                fourth.setPercentWidth(8);
-                getColumnConstraints().setAll(first, second, third, fourth);
+                fourth.setPercentWidth(32);
+                ColumnConstraints fifth = new ColumnConstraints();
+                fifth.setPercentWidth(8);
+                getColumnConstraints().setAll(first, second, third, fourth, fifth);
             }
             identity.setPadding(new Insets(0, small ? 40 : 0, 0, 0));
-            GridPane.setConstraints(identity, 0, 0, small ? 2 : 1, 1);
-            GridPane.setConstraints(stock, small ? 0 : 1, small ? 1 : 0);
-            GridPane.setConstraints(price, small ? 1 : 2, small ? 1 : 0);
-            GridPane.setConstraints(remove, small ? 1 : 3, 0);
+            GridPane.setConstraints(identity, 0, 0, small ? 3 : 1, 1);
+            GridPane.setConstraints(required, small ? 0 : 1, small ? 1 : 0);
+            GridPane.setConstraints(stock, small ? 1 : 2, small ? 1 : 0);
+            GridPane.setConstraints(price, small ? 2 : 3, small ? 1 : 0);
+            GridPane.setConstraints(remove, small ? 2 : 4, 0);
         }
     }
 

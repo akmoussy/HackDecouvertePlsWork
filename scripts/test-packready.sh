@@ -10,6 +10,7 @@ printf 'PackReady test classes: %s\n' "$packready_test_dir"
 javac --release 17 -encoding UTF-8 -Xlint:all -Werror -d "$packready_test_dir" \
   "$packready_repo_dir/demo/src/main/java/org/example/demo/PackReadyInputs.java" \
   "$packready_repo_dir/demo/src/main/java/org/example/demo/PackReadyForm.java" \
+  "$packready_repo_dir/demo/src/main/java/org/example/demo/PackReadyDemo.java" \
   "$packready_repo_dir/demo/src/main/java/org/example/demo/Planner.java" \
   "$packready_repo_dir/demo/src/main/java/org/example/demo/PackReadyResults.java" \
   "$packready_repo_dir/demo/src/test/java/org/example/demo/PackReadyInputsTest.java" \
@@ -17,9 +18,10 @@ javac --release 17 -encoding UTF-8 -Xlint:all -Werror -d "$packready_test_dir" \
   "$packready_repo_dir/demo/src/test/java/org/example/demo/PlannerTest.java" \
   "$packready_repo_dir/demo/src/test/java/org/example/demo/PackReadyResultsTest.java" \
   "$packready_repo_dir/demo/src/test/java/org/example/demo/PackReadyFlowTest.java" \
-  "$packready_repo_dir/demo/src/test/java/org/example/demo/PackReadyCategoriesTest.java"
+  "$packready_repo_dir/demo/src/test/java/org/example/demo/PackReadyCategoriesTest.java" \
+  "$packready_repo_dir/demo/src/test/java/org/example/demo/PackReadyQuantitiesTest.java"
 
-for packready_test in PackReadyInputsTest PackReadyFormTest PlannerTest PackReadyResultsTest PackReadyFlowTest PackReadyCategoriesTest
+for packready_test in PackReadyInputsTest PackReadyFormTest PlannerTest PackReadyResultsTest PackReadyFlowTest PackReadyCategoriesTest PackReadyQuantitiesTest
 do
   java -cp "$packready_test_dir" "org.example.demo.$packready_test"
 done

@@ -70,7 +70,7 @@ public final class PackReadyCategoriesTest {
     private static Planner.Plan plan(List<PackReadyForm.CategoryInput> raw, String budget) {
         PackReadyForm.Request request = PackReadyForm.parseCategories(raw, budget);
         List<Planner.Item> items = request.getItems().stream().map(
-                item -> new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents())).toList();
+                item -> new Planner.Item(item.getName(), item.getStock(), item.getUnitPriceCents(), item.getRequiredQuantity())).toList();
         return Planner.planPurchase(items, request.getBudgetCents());
     }
 

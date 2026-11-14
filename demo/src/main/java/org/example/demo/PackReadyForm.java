@@ -24,8 +24,8 @@ public final class PackReadyForm {
     }
 
     /**
-     * Reads the seven raw text fields in display order. Missing fields are
-     * invalid, just like blank fields. The caller's map is never changed.
+     * Reads the original three categories in display order. Optional -required
+     * fields default to 1 for legacy callers. The caller's map is never changed.
      *
      * @throws FieldValidationException for the first invalid field
      * @throws IllegalArgumentException if the entire form map is null
@@ -35,20 +35,24 @@ public final class PackReadyForm {
             throw new IllegalArgumentException("Form fields are required.");
         }
 
-        List<Item> items = new ArrayList<>();
-        items.add(readItem(fields, "Backpacks", BACKPACK_STOCK, BACKPACK_PRICE));
-        items.add(readItem(fields, "Notebooks", NOTEBOOK_STOCK, NOTEBOOK_PRICE));
-        items.add(readItem(fields, "Pencil cases", PENCIL_CASE_STOCK, PENCIL_CASE_PRICE));
-        int budgetCents = readMoney(fields, BUDGET, null, true);
-
-        // Return a complete request only after every field has passed validation.
-        return new Request(items, budgetCents);
+        return parseCategories(List.of(
+                new CategoryInput("backpack", "Backpacks", fields.get(BACKPACK_STOCK), fields.get(BACKPACK_PRICE),
+                        fields.getOrDefault("backpack-required", "1")),
+                new CategoryInput("notebook", "Notebooks", fields.get(NOTEBOOK_STOCK), fields.get(NOTEBOOK_PRICE),
+                        fields.getOrDefault("notebook-required", "1")),
+                new CategoryInput("pencil-case", "Pencil cases", fields.get(PENCIL_CASE_STOCK), fields.get(PENCIL_CASE_PRICE),
+                        fields.getOrDefault("pencil-case-required", "1"))), fields.get(BUDGET));
     }
 
     /** Raw text for one active category. Its stable id identifies invalid fields. */
-    public record CategoryInput(String id, String name, String stock, String unitPrice) {}
+    public record CategoryInput(String id, String name, String stock, String unitPrice, String requiredQuantity) {
+        /** Existing callers keep the original one-item-per-kit recipe. */
+        public CategoryInput(String id, String name, String stock, String unitPrice) {
+            this(id, name, stock, unitPrice, "1");
+        }
+    }
 
-    /** Reads any nonempty list of categories, with one item per category per kit. */
+    /** Reads a nonempty recipe, including its positive required quantities. */
     public static Request parseCategories(List<CategoryInput> categories, String budget) {
         if (categories == null || categories.isEmpty()) {
             throw new FieldValidationException(CATEGORIES, "Add at least one category before calculating.");
@@ -68,12 +72,19 @@ public final class PackReadyForm {
                 throw new FieldValidationException(category.id() + "-name", exception.getMessage(), exception);
             }
             names.add(name);
+            int required;
+            try {
+                required = PackReadyInputs.parseRequiredQuantity(category.requiredQuantity());
+            } catch (IllegalArgumentException exception) {
+                throw new FieldValidationException(category.id() + "-required", name + ": " + exception.getMessage(), exception);
+            }
             String stockField = category.id() + "-stock";
             String priceField = category.id() + "-price";
             Map<String, String> raw = new HashMap<>();
             raw.put(stockField, category.stock());
             raw.put(priceField, category.unitPrice());
-            items.add(readItem(raw, name, stockField, priceField));
+            Item item = readItem(raw, name, stockField, priceField);
+            items.add(new Item(name, item.getStock(), item.getUnitPriceCents(), required));
         }
         Map<String, String> rawBudget = new HashMap<>();
         rawBudget.put(BUDGET, budget);
@@ -100,7 +111,7 @@ public final class PackReadyForm {
         return name;
     }
 
-    /** Fresh, editable demo text for the controller to put in its seven fields. */
+    /** Fixed reference values for acceptance tests; the UI demo is randomized. */
     public static Map<String, String> demoFields() {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put(BACKPACK_STOCK, "25");
@@ -163,11 +174,17 @@ public final class PackReadyForm {
         private final String name;
         private final int stock;
         private final int unitPriceCents;
+        private final int requiredQuantity;
 
         private Item(String name, int stock, int unitPriceCents) {
+            this(name, stock, unitPriceCents, 1);
+        }
+
+        private Item(String name, int stock, int unitPriceCents, int requiredQuantity) {
             this.name = name;
             this.stock = stock;
             this.unitPriceCents = unitPriceCents;
+            this.requiredQuantity = requiredQuantity;
         }
 
         public String getName() {
@@ -180,6 +197,10 @@ public final class PackReadyForm {
 
         public int getUnitPriceCents() {
             return unitPriceCents;
+        }
+
+        public int getRequiredQuantity() {
+            return requiredQuantity;
         }
     }
 
